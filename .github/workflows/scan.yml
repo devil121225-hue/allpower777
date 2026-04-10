@@ -1,0 +1,36 @@
+name: Altcoin Signal Scanner
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 패키지 설치
+        run: pip install ccxt pandas requests
+
+      - name: 스캐너 실행
+        env:
+          TELEGRAM_TOKEN:   ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python scanner.py
+
+      - name: 시그널 저장
+        run: |
+          git config user.name  "SignalBot"
+          git config user.email "bot@signal"
+          git add docs/signals.json
+          git diff --staged --quiet || git commit -m "시그널 업데이트 $(date -u +'%Y-%m-%d %H:%M')"
+          git push

@@ -79,7 +79,7 @@ def scan_symbol(ex, symbol):
             'status':       'OPEN',
             'result_price': None,
             'result_time':  None,
-            'time': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC'),
+            'time':         datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC'),
         }
     except Exception as e:
         print(f"  {symbol} 스캔 실패: {e}")
@@ -112,13 +112,19 @@ def resolve_open_signals(ex, signals):
             elapsed  = 0
         result = None
         if sig['direction'] == 'LONG':
-            if curr >= sig['take_profit']:  result = 'WIN'
-            elif curr <= sig['stop_loss']:  result = 'LOSS'
-            elif elapsed >= EXPIRE_HOURS:   result = 'EXPIRED'
+            if curr >= sig['take_profit']:
+                result = 'WIN'
+            elif curr <= sig['stop_loss']:
+                result = 'LOSS'
+            elif elapsed >= EXPIRE_HOURS:
+                result = 'EXPIRED'
         else:
-            if curr <= sig['take_profit']:  result = 'WIN'
-            elif curr >= sig['stop_loss']:  result = 'LOSS'
-            elif elapsed >= EXPIRE_HOURS:   result = 'EXPIRED'
+            if curr <= sig['take_profit']:
+                result = 'WIN'
+            elif curr >= sig['stop_loss']:
+                result = 'LOSS'
+            elif elapsed >= EXPIRE_HOURS:
+                result = 'EXPIRED'
         if result:
             sig['status']       = result
             sig['result_price'] = round(curr, 6)
@@ -128,7 +134,7 @@ def resolve_open_signals(ex, signals):
 
 def send_telegram(token, chat_id, signal, is_result=False):
     if is_result:
-        icon = {'WIN':'🏆','LOSS':'💀','EXPIRED':'⏰'}.get(signal['status'],'❓')
+        icon = {'WIN': '🏆', 'LOSS': '💀', 'EXPIRED': '⏰'}.get(signal['status'], '❓')
         msg = (f"{icon} *결과 확정: {signal['symbol']}*\n"
                f"방향: {signal['direction']}\n"
                f"결과: *{signal['status']}*\n"
@@ -138,7 +144,7 @@ def send_telegram(token, chat_id, signal, is_result=False):
     else:
         icon = '🚀' if signal['direction'] == 'LONG' else '🎯'
         msg = (f"{icon} *{signal['symbol']}* "
-               f"{'🟢 LONG' if signal['direction']=='LONG' else '🔴 SHORT'}\n"
+               f"{'🟢 LONG' if signal['direction'] == 'LONG' else '🔴 SHORT'}\n"
                f"진입: `{signal['entry']}`\n"
                f"손절: `{signal['stop_loss']}`\n"
                f"목표: `{signal['take_profit']}`\n"
@@ -166,7 +172,7 @@ def save_signals(signals):
         json.dump(signals[-1000:], f, ensure_ascii=False, indent=2)
 
 def main():
-   ex = ccxt.bybit({'options': {'defaultType': 'linear'}})
+    ex = ccxt.bybit({'options': {'defaultType': 'linear'}})
 
     signals = load_signals()
     resolved = resolve_open_signals(ex, signals)
@@ -174,7 +180,7 @@ def main():
         print(f"  결과 확정: {len(resolved)}건")
         for sig in resolved:
             send_telegram(TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, sig, is_result=True)
-            print(f"    {sig['symbol']} → {sig['status']} @ {sig['result_price']}")
+            print(f"    {sig['symbol']} -> {sig['status']} @ {sig['result_price']}")
 
     new_signals = []
     print("시총 상위 100 종목 스캔 중...")

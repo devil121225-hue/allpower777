@@ -19,7 +19,7 @@ def get_top100_symbols(ex):
     tickers = ex.fetch_tickers()
     usdt_pairs = {
         k: v for k, v in tickers.items()
-        if k.endswith('/USDT') and k != 'BTC/USDT'
+        if k.endswith('/USDT:USDT')
         and v.get('quoteVolume') is not None
     }
     sorted_pairs = sorted(usdt_pairs.items(),
@@ -166,7 +166,7 @@ def save_signals(signals):
         json.dump(signals[-1000:], f, ensure_ascii=False, indent=2)
 
 def main():
-    ex = ccxt.binance({'options': {'defaultType': 'future'}})
+   ex = ccxt.bybit({'options': {'defaultType': 'linear'}})
 
     signals = load_signals()
     resolved = resolve_open_signals(ex, signals)

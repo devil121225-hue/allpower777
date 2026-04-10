@@ -67,7 +67,7 @@ def scan_symbol(ex, symbol):
         tp = price + dist * RR_RATIO if long_sig else price - dist * RR_RATIO
         be = price + dist * BE_TRIGGER if long_sig else price - dist * BE_TRIGGER
         return {
-            'id':           f"{symbol.replace('/','')}_{int(datetime.now(timezone.utc).timestamp())}",
+            'id':           f"{symbol.replace('/', '')}_{int(datetime.now(timezone.utc).timestamp())}",
             'symbol':       symbol,
             'direction':    direction,
             'entry':        round(price, 6),
@@ -172,7 +172,9 @@ def save_signals(signals):
         json.dump(signals[-1000:], f, ensure_ascii=False, indent=2)
 
 def main():
-    ex = ccxt.bybit({'options': {'defaultType': 'linear'}})
+    ex = ccxt.okx({
+        'options': {'defaultType': 'swap'},
+    })
 
     signals = load_signals()
     resolved = resolve_open_signals(ex, signals)

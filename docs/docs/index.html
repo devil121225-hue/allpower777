@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>알트코인 시그널 대시보드</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, sans-serif; background: #0f1117; color: #e2e8f0; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+  .header { margin-bottom: 1.5rem; }
+  .header h1 { font-size: 1.5rem; font-weight: 700; }
+  .header .sub { color: #64748b; font-size: 0.82rem; margin-top: 0.3rem; }
+  .tabs { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; border-bottom: 1px solid #1e2130; }
+  .tab { padding: 0.6rem 1.2rem; cursor: pointer; font-size: 0.88rem; color: #64748b;
+         border-bottom: 2px solid transparent; transition: color .15s, border-color .15s; }
+  .tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                gap: 0.75rem; margin-bottom: 1.5rem; }
+  .stat-card { background: #1a1d2e; border: 1px solid #2d3148; border-radius: 10px; padding: 1rem; }
+  .stat-card .label { font-size: 0.75rem; color: #64748b; margin-bottom: 0.3rem; }
+  .stat-card .value { font-size: 1.6rem; font-weight: 700; }
+  .stat-card .sub   { font-size: 0.75rem; color: #64748b; margin-top: 0.2rem; }
+  .win-rate { color: #4ade80; }
+  .loss-rate { color: #f87171; }
+  .neutral { color: #e2e8f0; }
+  .dir-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.5rem; }
+  .dir-card { background: #1a1d2e; border-radius: 10px; padding: 1rem; }
+  .dir-card h3 { font-size: 0.9rem; margin-bottom: 0.8rem; }
+  .bar-wrap { background: #0f1117; border-radius: 4px; height: 8px; overflow: hidden; margin: 0.4rem 0; }
+  .bar { height: 100%; border-radius: 4px; transition: width .6s ease; }
+  .bar-long  { background: #4ade80; }
+  .bar-short { background: #f87171; }
+  .dir-row { display: flex; justify-content: space-between; font-size: 0.82rem; color: #94a3b8; }
+  .filters { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+  .filters button { padding: 0.28rem 0.85rem; border-radius: 6px; border: 1px solid #2d3148;
+    background: #1a1d2e; color: #94a3b8; cursor: pointer; font-size: 0.82rem; }
+  .filters button.active { background: #1e3a8a; color: #93c5fd; border-color: #3b82f6; }
+  .search { padding: 0.28rem 0.75rem; border-radius: 6px; border: 1px solid #2d3148;
+            background: #1a1d2e; color: #e2e8f0; font-size: 0.82rem; width: 140px; }
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; white-space: nowrap; }
+  th { padding: 0.55rem 0.75rem; background: #141721; border-bottom: 1px solid #2d3148;
+       color: #64748b; font-weight: 500; text-align: left; }
+  td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #181c2b; }
+  tr:hover td { background: #1a1d2e; }
+  .badge { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 5px; font-size: 0.75rem; font-weight: 600; }
+  .badge-long    { background: #052e16; color: #4ade80; }
+  .badge-short   { background: #450a0a; color: #f87171; }
+  .badge-win     { background: #052e16; color: #4ade80; }
+  .badge-loss    { background: #450a0a; color: #f87171; }
+  .badge-open    { background: #172554; color: #93c5fd; }
+  .badge-expired { background: #1c1917; color: #78716c; }
+  .sym { font-weight: 600; }
+  .ts  { color: #475569; font-size: 0.75rem; }
+  .cal-nav { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+  .cal-nav button { background: #1a1d2e; border: 1px solid #2d3148; color: #94a3b8;
+                    padding: 0.3rem 0.7rem; border-radius: 6px; cursor: pointer; }
+  .cal-nav span { font-weight: 600; font-size: 1rem; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-dow { text-align: center; font-size: 0.72rem; color: #475569; padding: 0.3rem 0; }
+  .cal-day { background: #1a1d2e; border-radius: 8px; min-height: 72px; padding: 0.4rem; }
+  .cal-day .dn { font-size: 0.72rem; color: #475569; margin-bottom: 0.3rem; }
+  .cal-day .results { display: flex; flex-direction: column; gap: 2px; }
+  .cal-result { font-size: 0.68rem; padding: 1px 5px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cal-win  { background: #052e16; color: #4ade80; }
+  .cal-loss { background: #450a0a; color: #f87171; }
+  .cal-open { background: #172554; color: #93c5fd; }
+  .cal-empty { background: transparent; opacity: 0.2; }
+  .day-summary { font-size: 0.7rem; margin-top: 0.25rem; }
+  .page { display: none; }
+  .page.active { display: block; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>📡 알트코인 시그널 대시보드</h1>
+    <div class="sub" id="status">로딩 중...</div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('signals')">시그널 목록</div>
+    <div class="tab" onclick="showTab('stats')">통계</div>
+    <div class="tab" onclick="showTab('calendar')">날짜별 기록</div>
+  </div>
+
+  <div id="page-signals" class="page active">
+    <div class="filters">
+      <button onclick="setFilter('ALL')" class="active" id="f-ALL">전체</button>
+      <button onclick="setFilter('OPEN')" id="f-OPEN">🔵 진행중</button>
+      <button onclick="setFilter('WIN')" id="f-WIN">🏆 WIN</button>
+      <button onclick="setFilter('LOSS')" id="f-LOSS">💀 LOSS</button>
+      <button onclick="setFilter('EXPIRED')" id="f-EXPIRED">⏰ 만료</button>
+      <button onclick="setFilter('LONG')" id="f-LONG">🟢 LONG만</button>
+      <button onclick="setFilter('SHORT')" id="f-SHORT">🔴 SHORT만</button>
+      <input class="search" id="sym-search" placeholder="종목 검색..." oninput="render()">
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>종목</th><th>방향</th><th>진입</th><th>손절</th><th>목표</th><th>본절</th><th>RR</th><th>상태</th><th>결과가</th><th>발생시각</th></tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="page-stats" class="page">
+    <div class="stats-grid" id="stats-cards"></div>
+    <div class="dir-stats">
+      <div class="dir-card">
+        <h3>🟢 LONG 통계</h3>
+        <div class="dir-row"><span id="long-score"></span><span id="long-rate"></span></div>
+        <div class="bar-wrap"><div class="bar bar-long" id="long-bar" style="width:0%"></div></div>
+      </div>
+      <div class="dir-card">
+        <h3>🔴 SHORT 통계</h3>
+        <div class="dir-row"><span id="short-score"></span><span id="short-rate"></span></div>
+        <div class="bar-wrap"><div class="bar bar-short" id="short-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+    <h3 style="margin-bottom:.75rem;font-size:.9rem;color:#94a3b8">날짜별 성과</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>날짜</th><th>총 시그널</th><th>WIN</th><th>LOSS</th><th>EXPIRED</th><th>진행중</th><th>승률</th></tr></thead>
+        <tbody id="daily-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="page-calendar" class="page">
+    <div class="cal-nav">
+      <button onclick="calPrev()">◀</button>
+      <span id="cal-title"></span>
+      <button onclick="calNext()">▶</button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+</div>
+
+<script>
+let allData = [], currentFilter = 'ALL', calYear, calMonth;
+
+async function load() {
+  try {
+    const res = await fetch('signals.json?t=' + Date.now());
+    allData = await res.json();
+    allData.reverse();
+    const open = allData.filter(s => s.status === 'OPEN').length;
+    document.getElementById('status').textContent =
+      `총 ${allData.length}개 시그널 · 진행중 ${open}개 · 마지막 업데이트: ${allData[0]?.time ?? '-'}`;
+    render(); renderStats(); renderCalendar();
+  } catch(e) { document.getElementById('status').textContent = '데이터 로딩 실패'; }
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['signals','stats','calendar'][i] === name);
+  });
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+}
+
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById('f-'+f); if(el) el.classList.add('active');
+  render();
+}
+
+function getFiltered() {
+  const q = document.getElementById('sym-search')?.value.trim().toUpperCase() || '';
+  return allData.filter(s => {
+    const matchDir    = ['LONG','SHORT'].includes(currentFilter) ? s.direction === currentFilter : true;
+    const matchStatus = ['LONG','SHORT','ALL'].includes(currentFilter) ? true : s.status === currentFilter;
+    return matchDir && matchStatus && (q ? s.symbol.includes(q) : true);
+  });
+}
+
+function render() {
+  const badge = s => ({ WIN:'<span class="badge badge-win">🏆 WIN</span>', LOSS:'<span class="badge badge-loss">💀 LOSS</span>', OPEN:'<span class="badge badge-open">🔵 OPEN</span>', EXPIRED:'<span class="badge badge-expired">⏰ 만료</span>' }[s]||s);
+  document.getElementById('tbody').innerHTML = getFiltered().slice(0,300).map(s=>`
+    <tr>
+      <td class="sym">${s.symbol}</td>
+      <td>${s.direction==='LONG'?'<span class="badge badge-long">🟢 LONG</span>':'<span class="badge badge-short">🔴 SHORT</span>'}</td>
+      <td>${s.entry}</td><td style="color:#f87171">${s.stop_loss}</td>
+      <td style="color:#4ade80">${s.take_profit}</td><td style="color:#fbbf24">${s.be_target}</td>
+      <td>1:${s.rr}</td><td>${badge(s.status)}</td>
+      <td class="ts">${s.result_price??'-'}</td><td class="ts">${s.time}</td>
+    </tr>`).join('');
+}
+
+function renderStats() {
+  const dec=allData.filter(s=>s.status==='WIN'||s.status==='LOSS');
+  const wins=allData.filter(s=>s.status==='WIN').length;
+  const losses=allData.filter(s=>s.status==='LOSS').length;
+  const open=allData.filter(s=>s.status==='OPEN').length;
+  const expired=allData.filter(s=>s.status==='EXPIRED').length;
+  const rate=dec.length?((wins/dec.length)*100).toFixed(1):'-';
+  const ld=allData.filter(s=>s.direction==='LONG'&&(s.status==='WIN'||s.status==='LOSS'));
+  const lw=allData.filter(s=>s.direction==='LONG'&&s.status==='WIN').length;
+  const lr=ld.length?((lw/ld.length)*100).toFixed(1):'-';
+  const sd=allData.filter(s=>s.direction==='SHORT'&&(s.status==='WIN'||s.status==='LOSS'));
+  const sw=allData.filter(s=>s.direction==='SHORT'&&s.status==='WIN').length;
+  const sr=sd.length?((sw/sd.length)*100).toFixed(1):'-';
+  document.getElementById('stats-cards').innerHTML=`
+    <div class="stat-card"><div class="label">전체 시그널</div><div class="value neutral">${allData.length}</div><div class="sub">누적</div></div>
+    <div class="stat-card"><div class="label">전체 승률</div><div class="value ${parseFloat(rate)>=50?'win-rate':'loss-rate'}">${rate}%</div><div class="sub">${wins}승 ${losses}패</div></div>
+    <div class="stat-card"><div class="label">진행중</div><div class="value" style="color:#60a5fa">${open}</div><div class="sub">OPEN</div></div>
+    <div class="stat-card"><div class="label">만료</div><div class="value" style="color:#78716c">${expired}</div><div class="sub">48h 초과 미결</div></div>`;
+  document.getElementById('long-score').textContent=`${lw}승 ${ld.length-lw}패`;
+  document.getElementById('long-rate').textContent=`승률 ${lr}%`;
+  document.getElementById('long-bar').style.width=lr!=='-'?lr+'%':'0%';
+  document.getElementById('short-score').textContent=`${sw}승 ${sd.length-sw}패`;
+  document.getElementById('short-rate').textContent=`승률 ${sr}%`;
+  document.getElementById('short-bar').style.width=sr!=='-'?sr+'%':'0%';
+  const byDate={};
+  allData.forEach(s=>{ const d=s.time.slice(0,10); if(!byDate[d]) byDate[d]={total:0,win:0,loss:0,expired:0,open:0}; byDate[d].total++; if(s.status==='WIN')byDate[d].win++; if(s.status==='LOSS')byDate[d].loss++; if(s.status==='EXPIRED')byDate[d].expired++; if(s.status==='OPEN')byDate[d].open++; });
+  document.getElementById('daily-tbody').innerHTML=Object.keys(byDate).sort().reverse().map(d=>{ const r=byDate[d]; const dec2=r.win+r.loss; const wr=dec2?((r.win/dec2)*100).toFixed(0)+'%':'-'; return `<tr><td style="font-weight:600">${d}</td><td>${r.total}</td><td style="color:#4ade80">${r.win}</td><td style="color:#f87171">${r.loss}</td><td style="color:#78716c">${r.expired}</td><td style="color:#60a5fa">${r.open}</td><td style="font-weight:600;color:${parseFloat(wr)>=50?'#4ade80':'#f87171'}">${wr}</td></tr>`; }).join('');
+}
+
+function renderCalendar() {
+  const now=new Date(); if(!calYear) calYear=now.getFullYear(); if(!calMonth) calMonth=now.getMonth();
+  document.getElementById('cal-title').textContent=`${calYear}년 ${calMonth+1}월`;
+  const byDate={};
+  allData.forEach(s=>{ const d=s.time.slice(0,10); if(!byDate[d]) byDate[d]=[]; byDate[d].push(s); });
+  const firstDay=new Date(calYear,calMonth,1).getDay();
+  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  let html=['일','월','화','수','목','금','토'].map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  for(let i=0;i<firstDay;i++) html+=`<div class="cal-day cal-empty"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const sigs=byDate[ds]||[];
+    const wins=sigs.filter(s=>s.status==='WIN').length;
+    const losses=sigs.filter(s=>s.status==='LOSS').length;
+    let inner=`<div class="dn">${d}</div><div class="results">`;
+    sigs.slice(0,4).forEach(s=>{ const cls=s.status==='WIN'?'cal-win':s.status==='LOSS'?'cal-loss':'cal-open'; inner+=`<div class="cal-result ${cls}">${s.symbol.replace('/USDT','')} ${s.direction[0]}</div>`; });
+    if(sigs.length>4) inner+=`<div class="cal-result cal-open">+${sigs.length-4}건</div>`;
+    inner+=`</div>`;
+    if(wins+losses>0){ const rate=((wins/(wins+losses))*100).toFixed(0); inner+=`<div class="day-summary" style="color:${parseFloat(rate)>=50?'#4ade80':'#f87171'}">${wins}W ${losses}L ${rate}%</div>`; }
+    html+=`<div class="cal-day">${inner}</div>`;
+  }
+  document.getElementById('cal-grid').innerHTML=html;
+}
+function calPrev(){ calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCalendar(); }
+function calNext(){ calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCalendar(); }
+load();
+setInterval(load,300000);
+</script>
+</body>
+</html>

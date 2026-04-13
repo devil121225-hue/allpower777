@@ -214,7 +214,7 @@ def save_signals(signals):
 
 
 def main():
-    ex = ccxt.bybit({'options': {'defaultType': 'linear'}})
+   ex = ccxt.okx({'options': {'defaultType': 'swap'}})
 
     # 1. OPEN 시그널 결과 판정
     signals  = load_signals()

@@ -15,6 +15,8 @@ RR_RATIO     = 3.0
 BE_TRIGGER   = 1.5
 EXPIRE_HOURS = 48
 
+ENABLE_15M = True   # ← 15분 스캔 켜기/끄기 (False로 바꾸면 꺼짐)
+
 SIGNALS_FILE = 'docs/signals.json'
 # ──────────────────────────────────────────────────
 
@@ -47,9 +49,10 @@ def calculate_indicators(df):
     return df
 
 
-def scan_symbol(ex, symbol):
+def scan_symbol(ex, symbol, timeframe='1h'):
     try:
-        ohlcv = ex.fetch_ohlcv(symbol, '1h', limit=250)
+        limit = 250
+        ohlcv = ex.fetch_ohlcv(symbol, timeframe, limit=limit)
         if len(ohlcv) < 220:
             return None
 
@@ -85,8 +88,9 @@ def scan_symbol(ex, symbol):
         tp_pct = round(abs(tp - price) / price * 100, 2)
 
         return {
-            'id':           f"{symbol.replace('/','_')}_{int(datetime.now(timezone.utc).timestamp())}",
+            'id':           f"{symbol.replace('/','_')}_{timeframe}_{int(datetime.now(timezone.utc).timestamp())}",
             'symbol':       symbol,
+            'timeframe':    timeframe,
             'direction':    direction,
             'entry':        round(price, 6),
             'stop_loss':    round(sl,    6),
@@ -104,7 +108,7 @@ def scan_symbol(ex, symbol):
         }
 
     except Exception as e:
-        print(f"  {symbol} 스캔 실패: {e}")
+        print(f"  {symbol} [{timeframe}] 스캔 실패: {e}")
         return None
 
 
@@ -165,11 +169,12 @@ def resolve_open_signals(ex, signals):
 
 
 def send_telegram(token, chat_id, signal, is_result=False):
+    tf = signal.get('timeframe', '1h')
     if is_result:
         icon    = {'WIN': '🏆', 'LOSS': '💀', 'EXPIRED': '⏰'}.get(signal['status'], '❓')
         pct     = signal.get('result_pct')
         pct_str = f"\n손익: `{'+' if pct and pct >= 0 else ''}{pct}%`" if pct is not None else ''
-        msg = (f"{icon} *결과 확정: {signal['symbol']}*\n"
+        msg = (f"{icon} *결과 확정: {signal['symbol']}* [{tf}]\n"
                f"방향: {signal['direction']}\n"
                f"결과: *{signal['status']}*\n"
                f"진입가: `{signal['entry']}`\n"
@@ -178,7 +183,7 @@ def send_telegram(token, chat_id, signal, is_result=False):
                f"{signal['result_time']}")
     else:
         icon = '🚀' if signal['direction'] == 'LONG' else '🎯'
-        msg  = (f"{icon} *{signal['symbol']}* "
+        msg  = (f"{icon} *{signal['symbol']}* [{tf}] "
                 f"{'🟢 LONG' if signal['direction'] == 'LONG' else '🔴 SHORT'}\n"
                 f"진입: `{signal['entry']}`\n"
                 f"손절: `{signal['stop_loss']}` (-{signal['sl_pct']}%)\n"
@@ -221,21 +226,41 @@ def main():
             send_telegram(TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, sig, is_result=True)
             print(f"  {sig['symbol']} → {sig['status']} @ {sig['result_price']} ({sig.get('result_pct','?')}%)")
 
-    # 2. 새 시그널 스캔
-    new_signals = []
+    # 2. 이미 OPEN 중인 symbol+direction 목록 (중복 방지)
+    open_set = {(s['symbol'], s['direction']) for s in signals if s.get('status') == 'OPEN'}
+
+    # 3. 종목 목록 1회만 조회
     print("시총 상위 100 종목 스캔 중...")
     symbols = get_top100_symbols(ex)
+
+    new_signals = []
+
+    # 4. 1h 스캔
+    print("[1h] 스캔 시작...")
     for sym in symbols:
-        result = scan_symbol(ex, sym)
-        if result:
+        if (sym, 'LONG') in open_set and (sym, 'SHORT') in open_set:
+            continue
+        result = scan_symbol(ex, sym, '1h')
+        if result and (result['symbol'], result['direction']) not in open_set:
             new_signals.append(result)
-            print(f"  ✅ {result['symbol']} {result['direction']}")
+            open_set.add((result['symbol'], result['direction']))
+            print(f"  ✅ [1h] {result['symbol']} {result['direction']}")
+
+    # 5. 15m 스캔 (옵션)
+    if ENABLE_15M:
+        print("[15m] 스캔 시작...")
+        for sym in symbols:
+            result = scan_symbol(ex, sym, '15m')
+            if result and (result['symbol'], result['direction']) not in open_set:
+                new_signals.append(result)
+                open_set.add((result['symbol'], result['direction']))
+                print(f"  ✅ [15m] {result['symbol']} {result['direction']}")
 
     print(f"  새 시그널 {len(new_signals)}건")
     for sig in new_signals:
         send_telegram(TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, sig)
 
-    # 3. 저장
+    # 6. 저장
     signals.extend(new_signals)
     save_signals(signals)
     print("완료")

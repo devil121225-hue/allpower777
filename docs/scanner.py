@@ -25,7 +25,7 @@ def get_top100_symbols(ex):
     tickers = ex.fetch_tickers()
     usdt_pairs = {
         k: v for k, v in tickers.items()
-        if k.endswith('/USDT') and k != 'BTC/USDT'
+        if k.endswith('/USDT:USDT') and k != 'BTC/USDT:USDT'
         and v.get('quoteVolume') is not None
     }
     sorted_pairs = sorted(usdt_pairs.items(),
@@ -51,8 +51,7 @@ def calculate_indicators(df):
 
 def scan_symbol(ex, symbol, timeframe='1h'):
     try:
-        limit = 250
-        ohlcv = ex.fetch_ohlcv(symbol, timeframe, limit=limit)
+        ohlcv = ex.fetch_ohlcv(symbol, timeframe, limit=250)
         if len(ohlcv) < 220:
             return None
 
@@ -215,7 +214,7 @@ def save_signals(signals):
 
 
 def main():
-    ex = ccxt.binance({'options': {'defaultType': 'future'}})
+    ex = ccxt.bybit({'options': {'defaultType': 'linear'}})
 
     # 1. OPEN 시그널 결과 판정
     signals  = load_signals()
@@ -238,8 +237,6 @@ def main():
     # 4. 1h 스캔
     print("[1h] 스캔 시작...")
     for sym in symbols:
-        if (sym, 'LONG') in open_set and (sym, 'SHORT') in open_set:
-            continue
         result = scan_symbol(ex, sym, '1h')
         if result and (result['symbol'], result['direction']) not in open_set:
             new_signals.append(result)

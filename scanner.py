@@ -43,7 +43,7 @@ VOL_BREAKOUT_MULT = 1.5  # 돌파 캔들 거래량 배수 (20봉 평균 대비)
 BODY_RATIO_MIN   = 0.45  # 돌파 캔들 몸통 비율 최소값 (캔들 전체 대비)
 
 SIGNALS_FILE = "docs/signals.json"
-BASE_URL = "https://data.binance.com"
+BASE_URL = "https://api1.binance.com"
 
 STABLE_BASES = {
     "USDT", "USDC", "FDUSD", "TUSD", "BUSD",

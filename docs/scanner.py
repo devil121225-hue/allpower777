@@ -26,7 +26,7 @@ import requests
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
-BASE_URL = "https://api.binance.com"
+BASE_URL = "https://api1.binance.com"
 INTERVAL = "1h"
 KLINE_LIMIT = 800
 
